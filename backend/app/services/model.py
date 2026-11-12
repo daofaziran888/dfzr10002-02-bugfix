@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.filtering import FilterableService
 from app.store import store
 
 MODULE = "model"
@@ -12,23 +13,9 @@ ACTION_RULES = {"部署模型": "草稿", "下线模型": "已部署", "归档�
 NEGATIVE_ACTIONS = ["下线模型"]
 
 
-class ModelService:
-    def list_entries(
-        self,
-        *,
-        keyword: str | None = None,
-        status: str | None = None,
-        page: int = 1,
-        size: int = 20,
-    ) -> tuple[list[dict[str, Any]], int]:
-        rows = store.rows(MODULE)
-        if keyword:
-            rows = [row for row in rows if keyword in str(row.get("模型编号", ""))]
-        if status:
-            rows = [row for row in rows if row.get("status") == status]
-        total = len(rows)
-        start = max(page - 1, 0) * size
-        return rows[start:start + size], total
+class ModelService(FilterableService):
+    module = MODULE
+    statuses = STATUS_ORDER
 
     def get_entry(self, entry_id: int) -> dict[str, Any] | None:
         return store.find(MODULE, entry_id)

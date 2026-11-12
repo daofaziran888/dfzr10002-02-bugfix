@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.filtering import FilterableService
 from app.store import store
 
 MODULE = "export"
@@ -12,23 +13,9 @@ ACTION_RULES = {"提交校验": "待校验", "启用配置": "已启用", "停�
 NEGATIVE_ACTIONS = ["停用配置"]
 
 
-class ExportService:
-    def list_entries(
-        self,
-        *,
-        keyword: str | None = None,
-        status: str | None = None,
-        page: int = 1,
-        size: int = 20,
-    ) -> tuple[list[dict[str, Any]], int]:
-        rows = store.rows(MODULE)
-        if keyword:
-            rows = [row for row in rows if keyword in str(row.get("模板编号", ""))]
-        if status:
-            rows = [row for row in rows if row.get("status") == status]
-        total = len(rows)
-        start = max(page - 1, 0) * size
-        return rows[start:start + size], total
+class ExportService(FilterableService):
+    module = MODULE
+    statuses = STATUS_ORDER
 
     def get_entry(self, entry_id: int) -> dict[str, Any] | None:
         return store.find(MODULE, entry_id)

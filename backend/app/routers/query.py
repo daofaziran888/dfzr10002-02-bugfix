@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
+from app.routers.common import build_export_response, build_page_result, build_summary
 from app.schemas import ActionResult, EntryPayload, PageResult
 from app.services.query import QueryService
 
@@ -14,23 +15,29 @@ service = QueryService()
 
 LIST_FIELDS = ["模板编号", "模板名称", "查询语句", "参数定义", "缓存时间", "结果上限", "执行超时", "模板版本"]
 STATUSES = ["草稿", "待审批", "已发布", "已停用"]
+# 英文参数别名：code 对应编号，name 对应名称。
+ALIASES = {"code": LIST_FIELDS[0], "name": LIST_FIELDS[1]}
 
 
 @router.get("", response_model=PageResult[dict])
 def list_entries(
-    keyword: str | None = Query(default=None, description="按模板编号检索"),
-    status: str | None = Query(default=None, description="草稿、待审批、已发布、已停用"),
+    request: Request,
+    keyword: str | None = Query(default=None, description="按编号、名称或关键字段检索"),
+    status: str | None = Query(default=None, description="按状态过滤"),
     page: int = 1,
     size: int = 20,
 ) -> PageResult[dict]:
-    """按模板编号与状态过滤聚合查询配置列表；没有数据时返回空页，不报错。"""
-    if size > 200:
-        raise HTTPException(status_code=400, detail="每页最多 200 条，请缩小分页范围")
-    items, total = service.list_entries(keyword=keyword, status=status, page=page, size=size)
-    return PageResult(items=items, total=total, page=page, size=size)
+    """按名称、关键字段与状态过滤列表；没有数据时返回空页，不报错。"""
+    return build_page_result(request, service, LIST_FIELDS, ALIASES, page=page, size=size)
 
 
-@router.get("/{entry_id}", response_model=dict)
+@router.get("/summary")
+def summary(request: Request) -> dict[str, Any]:
+    """筛选摘要：与当前列表同一快照、同一筛选条件。"""
+    return build_summary(request, service, LIST_FIELDS, ALIASES)
+
+
+@router.get("/{entry_id:int}", response_model=dict)
 def get_entry(entry_id: int) -> dict:
     """读取单条查询模板明细；不存在时给出可读的错误说明。"""
     entry = service.get_entry(entry_id)
@@ -59,7 +66,6 @@ def run_action(entry_id: int, payload: EntryPayload) -> ActionResult:
 
 
 @router.get("/export")
-def export_entries() -> dict[str, Any]:
-    """导出聚合查询配置清单：返回当前过滤条件下的全量数据。"""
-    items, total = service.list_entries(page=1, size=10000)
-    return {"module": "query", "total": total, "items": items}
+def export_entries(request: Request) -> Any:
+    """导出清单：沿用当前列表条件与快照，输出带表头的 CSV，空结果也保留表头。"""
+    return build_export_response(request, service, LIST_FIELDS, "query", "聚合查询配置清单", ALIASES)

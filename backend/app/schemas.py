@@ -13,6 +13,10 @@ class PageResult(BaseModel, Generic[T]):
     total: int
     page: int = 1
     size: int = 20
+    # 列表与导出共用一张数据快照；前端导出时带上它，保证文件与页面总数一致。
+    snapshot: str | None = None
+    filters: dict[str, str] = Field(default_factory=dict)
+    summary: dict[str, Any] | None = None
 
 
 class ActionResult(BaseModel):
